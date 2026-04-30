@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/tools/record"
@@ -30,13 +30,13 @@ import (
 	baseclocktest "k8s.io/utils/clock/testing"
 
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/features"
-	utils "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/updater/utils"
+	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/updater/utils"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/utils/test"
 )
 
 type CanInPlaceUpdateTestParams struct {
 	name                    string
-	pods                    []*apiv1.Pod
+	pods                    []*corev1.Pod
 	replicas                int32
 	evictionTolerance       float64
 	lastInPlaceAttempt      time.Time
@@ -46,7 +46,7 @@ type CanInPlaceUpdateTestParams struct {
 func TestCanInPlaceUpdate(t *testing.T) {
 	featuregatetesting.SetFeatureGateDuringTest(t, features.MutableFeatureGate, features.InPlaceOrRecreate, true)
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -67,7 +67,7 @@ func TestCanInPlaceUpdate(t *testing.T) {
 	testCases := []CanInPlaceUpdateTestParams{
 		{
 			name: "CanInPlaceUpdate=InPlaceApproved - (half of 3)",
-			pods: []*apiv1.Pod{
+			pods: []*corev1.Pod{
 				generatePod().Get(),
 				generatePod().Get(),
 				generatePod().Get(),
@@ -79,7 +79,7 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceDeferred - no pods can be in-placed, one missing",
-			pods: []*apiv1.Pod{
+			pods: []*corev1.Pod{
 				generatePod().Get(),
 				generatePod().Get(),
 			},
@@ -90,7 +90,7 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceApproved - small tolerance, all running",
-			pods: []*apiv1.Pod{
+			pods: []*corev1.Pod{
 				generatePod().Get(),
 				generatePod().Get(),
 				generatePod().Get(),
@@ -102,7 +102,7 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceApproved - small tolerance, one missing",
-			pods: []*apiv1.Pod{
+			pods: []*corev1.Pod{
 				generatePod().Get(),
 				generatePod().Get(),
 			},
@@ -113,12 +113,12 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceDeferred - resize Deferred, conditions not met to fallback",
-			pods: []*apiv1.Pod{
-				generatePod().WithPodConditions([]apiv1.PodCondition{
+			pods: []*corev1.Pod{
+				generatePod().WithPodConditions([]corev1.PodCondition{
 					{
-						Type:   apiv1.PodResizePending,
-						Status: apiv1.ConditionTrue,
-						Reason: apiv1.PodReasonDeferred,
+						Type:   corev1.PodResizePending,
+						Status: corev1.ConditionTrue,
+						Reason: corev1.PodReasonDeferred,
 					},
 				}).Get(),
 				generatePod().Get(),
@@ -131,11 +131,11 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: ("CanInPlaceUpdate=InPlaceEvict - resize inProgress for more too long"),
-			pods: []*apiv1.Pod{
-				generatePod().WithPodConditions([]apiv1.PodCondition{
+			pods: []*corev1.Pod{
+				generatePod().WithPodConditions([]corev1.PodCondition{
 					{
-						Type:   apiv1.PodResizeInProgress,
-						Status: apiv1.ConditionTrue,
+						Type:   corev1.PodResizeInProgress,
+						Status: corev1.ConditionTrue,
 					},
 				}).Get(),
 				generatePod().Get(),
@@ -148,11 +148,11 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceDeferred - resize InProgress, conditions not met to fallback",
-			pods: []*apiv1.Pod{
-				generatePod().WithPodConditions([]apiv1.PodCondition{
+			pods: []*corev1.Pod{
+				generatePod().WithPodConditions([]corev1.PodCondition{
 					{
-						Type:   apiv1.PodResizeInProgress,
-						Status: apiv1.ConditionTrue,
+						Type:   corev1.PodResizeInProgress,
+						Status: corev1.ConditionTrue,
 					},
 				}).Get(),
 				generatePod().Get(),
@@ -165,12 +165,12 @@ func TestCanInPlaceUpdate(t *testing.T) {
 		},
 		{
 			name: "CanInPlaceUpdate=InPlaceEvict - infeasible",
-			pods: []*apiv1.Pod{
-				generatePod().WithPodConditions([]apiv1.PodCondition{
+			pods: []*corev1.Pod{
+				generatePod().WithPodConditions([]corev1.PodCondition{
 					{
-						Type:   apiv1.PodResizePending,
-						Status: apiv1.ConditionTrue,
-						Reason: apiv1.PodReasonInfeasible,
+						Type:   corev1.PodResizePending,
+						Status: corev1.ConditionTrue,
+						Reason: corev1.PodReasonInfeasible,
 					},
 				}).Get(),
 				generatePod().Get(),
@@ -184,7 +184,7 @@ func TestCanInPlaceUpdate(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			rc.Spec = apiv1.ReplicationControllerSpec{
+			rc.Spec = corev1.ReplicationControllerSpec{
 				Replicas: &tc.replicas,
 			}
 
@@ -213,7 +213,7 @@ func TestInPlaceDisabledFeatureGate(t *testing.T) {
 	livePods := 5
 	tolerance := 1.0
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -221,12 +221,12 @@ func TestInPlaceDisabledFeatureGate(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().WithName(getTestPodName(i)).WithCreator(&rc.ObjectMeta, &rc.TypeMeta).Get()
 	}
@@ -250,7 +250,7 @@ func TestInPlaceTooFewReplicas(t *testing.T) {
 	livePods := 5
 	tolerance := 0.5
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -258,12 +258,12 @@ func TestInPlaceTooFewReplicas(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().WithName(getTestPodName(i)).WithCreator(&rc.ObjectMeta, &rc.TypeMeta).Get()
 	}
@@ -295,7 +295,7 @@ func TestEvictionToleranceForInPlace(t *testing.T) {
 	livePods := 5
 	tolerance := 0.8
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -303,12 +303,12 @@ func TestEvictionToleranceForInPlace(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().WithName(getTestPodName(i)).WithCreator(&rc.ObjectMeta, &rc.TypeMeta).Get()
 	}
@@ -331,10 +331,6 @@ func TestEvictionToleranceForInPlace(t *testing.T) {
 		err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
 		assert.Nil(t, err, "Should evict with no error")
 	}
-	for _, pod := range pods[4:] {
-		err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
-		assert.Error(t, err, "Error expected")
-	}
 }
 
 func TestEvictionToleranceForInPlaceWithSkipDisruptionBudget(t *testing.T) {
@@ -349,7 +345,7 @@ func TestEvictionToleranceForInPlaceWithSkipDisruptionBudget(t *testing.T) {
 	livePods := 5
 	tolerance := 0.8
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -357,12 +353,12 @@ func TestEvictionToleranceForInPlaceWithSkipDisruptionBudget(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().
 			WithName(getTestPodName(i)).
@@ -395,14 +391,19 @@ func TestEvictionToleranceForInPlaceWithSkipDisruptionBudget(t *testing.T) {
 	}
 }
 
-func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
-	featuregatetesting.SetFeatureGateDuringTest(t, features.MutableFeatureGate, features.InPlaceOrRecreate, true)
+func TestEvictionToleranceForInPlaceWithSkipDisruptionBudgetWithLessThanMinimumPods(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(
+		t,
+		features.MutableFeatureGate,
+		features.InPlaceOrRecreate,
+		true,
+	)
 
 	replicas := int32(5)
-	livePods := 5
-	tolerance := 0.1 // Very low tolerance - would normally block most updates
+	livePods := 1
+	tolerance := 0.8
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -410,7 +411,69 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
+			Replicas: &replicas,
+		},
+	}
+
+	pods := make([]*corev1.Pod, livePods)
+	for i := range pods {
+		pods[i] = test.Pod().
+			WithName(getTestPodName(i)).
+			WithCreator(&rc.ObjectMeta, &rc.TypeMeta).
+			Get()
+	}
+
+	clock := baseclocktest.NewFakeClock(time.Time{})
+	lipatm := map[string]time.Time{}
+
+	basicVpa := getIPORVpa()
+	// inPlaceSkipDisruptionBudget = true
+	// minReplicas needs to be greater than the number of live pods
+	factory, err := getRestrictionFactory(&rc, nil, nil, nil, 2 /* minReplicas */, tolerance, clock, lipatm, GetFakeCalculatorsWithFakeResourceCalc(), true /* inPlaceSkipDisruptionBudget */)
+	assert.NoError(t, err)
+
+	creatorToSingleGroupStatsMap, podToReplicaCreatorMap, err := factory.GetCreatorMaps(pods, basicVpa)
+	assert.NoError(t, err)
+
+	inplace := factory.NewPodsInPlaceRestriction(creatorToSingleGroupStatsMap, podToReplicaCreatorMap)
+	evict := factory.NewPodsEvictionRestriction(creatorToSingleGroupStatsMap, podToReplicaCreatorMap)
+
+	// All in-place updates should be approved
+	for _, pod := range pods {
+		assert.Equal(t, utils.InPlaceApproved, inplace.CanInPlaceUpdate(pod))
+	}
+
+	// And all in-place updates should succeed without being blocked by eviction tolerance, but eviction
+	// should not be allowed since we are below minimum replicas, even with inPlaceSkipDisruptionBudget=true
+	for _, pod := range pods {
+		err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
+		assert.NoError(t, err)
+
+		eviction := evict.CanEvict(pod)
+		assert.False(t, eviction, "Pod should not be evictable when below minimum replicas, even with inPlaceSkipDisruptionBudget=true")
+
+		err = evict.Evict(pod, basicVpa, test.FakeEventRecorder())
+		assert.Error(t, err)
+	}
+}
+
+func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.MutableFeatureGate, features.InPlaceOrRecreate, true)
+
+	replicas := int32(5)
+	livePods := 5
+	tolerance := 0.1 // Very low tolerance - would normally block most updates
+
+	rc := corev1.ReplicationController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rc",
+			Namespace: "default",
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ReplicationController",
+		},
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
@@ -424,9 +487,9 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "NotRequired policy with flag enabled - should skip disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.NotRequired},
 				}).Get()),
 			inPlaceSkipDisruptionBudget: true,
 			expectedUpdateSuccesses:     5,
@@ -434,9 +497,9 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "RestartContainer policy with flag enabled - should respect disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.NotRequired},
 				}).Get()),
 			inPlaceSkipDisruptionBudget: false,
 			expectedUpdateSuccesses:     1, // Still respects budget because of RestartContainer
@@ -444,8 +507,8 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "Only RestartContainer policy with flag enabled - should respect disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.RestartContainer},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.RestartContainer},
 				}).Get()),
 			inPlaceSkipDisruptionBudget: true,
 			expectedUpdateSuccesses:     1,
@@ -465,14 +528,14 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "Multiple containers - all NotRequired - should skip disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.NotRequired},
 				}).Get(),
 			).AddContainer(
-				test.Container().WithName("container2").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container2").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.NotRequired},
 				}).Get()),
 			inPlaceSkipDisruptionBudget: true,
 			expectedUpdateSuccesses:     5,
@@ -480,14 +543,14 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "Multiple containers - one NotRequired, one RestartContainer - should respect disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.NotRequired},
 				}).Get(),
 			).AddContainer(
-				test.Container().WithName("container2").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.RestartContainer},
-					{ResourceName: apiv1.ResourceMemory, RestartPolicy: apiv1.RestartContainer},
+				test.Container().WithName("container2").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.RestartContainer},
+					{ResourceName: corev1.ResourceMemory, RestartPolicy: corev1.RestartContainer},
 				}).Get()),
 			inPlaceSkipDisruptionBudget: true,
 			expectedUpdateSuccesses:     1, // Respects budget because container2 has RestartContainer
@@ -495,8 +558,8 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 		{
 			name: "Multiple containers - one with policy, one without - should skip disruption budget",
 			podBuilder: test.Pod().WithCreator(&rc.ObjectMeta, &rc.TypeMeta).AddContainer(
-				test.Container().WithName("container1").WithContainerResizePolicy([]apiv1.ContainerResizePolicy{
-					{ResourceName: apiv1.ResourceCPU, RestartPolicy: apiv1.NotRequired},
+				test.Container().WithName("container1").WithContainerResizePolicy([]corev1.ContainerResizePolicy{
+					{ResourceName: corev1.ResourceCPU, RestartPolicy: corev1.NotRequired},
 				}).Get(),
 			).AddContainer(
 				test.Container().WithName("container2").Get()),
@@ -507,8 +570,8 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pods := make([]*apiv1.Pod, livePods)
-			for index := range livePods {
+			pods := make([]*corev1.Pod, livePods)
+			for index := range pods {
 				pods[index] = tc.podBuilder.WithName(getTestPodName(index)).Get()
 			}
 
@@ -526,6 +589,10 @@ func TestInPlaceSkipDisruptionBudgetWithResizePolicy(t *testing.T) {
 
 			successCount := 0
 			for _, pod := range pods {
+				decision := inplace.CanInPlaceUpdate(pod)
+				if decision != utils.InPlaceApproved {
+					continue
+				}
 				err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
 				if err == nil {
 					successCount++
@@ -544,7 +611,7 @@ func TestInPlaceAtLeastOne(t *testing.T) {
 	livePods := 5
 	tolerance := 0.1
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -552,12 +619,12 @@ func TestInPlaceAtLeastOne(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().WithName(getTestPodName(i)).WithCreator(&rc.ObjectMeta, &rc.TypeMeta).Get()
 	}
@@ -569,17 +636,15 @@ func TestInPlaceAtLeastOne(t *testing.T) {
 	assert.NoError(t, err)
 	inplace := factory.NewPodsInPlaceRestriction(creatorToSingleGroupStatsMap, podToReplicaCreatorMap)
 
-	for _, pod := range pods {
-		assert.Equal(t, utils.InPlaceApproved, inplace.CanInPlaceUpdate(pod))
-	}
-
 	for _, pod := range pods[:1] {
+		assert.Equal(t, utils.InPlaceApproved, inplace.CanInPlaceUpdate(pod))
 		err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
 		assert.Nil(t, err, "Should in-place update with no error")
 	}
 	for _, pod := range pods[1:] {
+		assert.Equal(t, utils.InPlaceDeferred, inplace.CanInPlaceUpdate(pod))
 		err := inplace.InPlaceUpdate(pod, basicVpa, test.FakeEventRecorder())
-		assert.Error(t, err, "Error expected")
+		assert.Nil(t, err, "Error should not be expected")
 	}
 }
 
@@ -590,7 +655,7 @@ func TestInPlaceUpdate_EventEmission(t *testing.T) {
 	livePods := 5
 	tolerance := 0.1
 
-	rc := apiv1.ReplicationController{
+	rc := corev1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rc",
 			Namespace: "default",
@@ -598,12 +663,12 @@ func TestInPlaceUpdate_EventEmission(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ReplicationController",
 		},
-		Spec: apiv1.ReplicationControllerSpec{
+		Spec: corev1.ReplicationControllerSpec{
 			Replicas: &replicas,
 		},
 	}
 
-	pods := make([]*apiv1.Pod, livePods)
+	pods := make([]*corev1.Pod, livePods)
 	for i := range pods {
 		pods[i] = test.Pod().WithName(getTestPodName(i)).WithCreator(&rc.ObjectMeta, &rc.TypeMeta).Get()
 	}
